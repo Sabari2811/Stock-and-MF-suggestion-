@@ -21,11 +21,7 @@ def enrich(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def rank_stock(symbol: str, df: pd.DataFrame, mode: str = "intraday") -> dict | None:
-    """Rank one stock using the scanner's technical setup model.
-
-    The scanner owns this ranking path; it does not depend on a separate
-    SignalEngine class, keeping the Streamlit runtime import-safe.
-    """
+    """Rank one stock using technical trend, momentum, volume and risk quality."""
     if df.empty or len(df) < 30:
         return None
     x = enrich(df).dropna()
@@ -45,7 +41,19 @@ def rank_stock(symbol: str, df: pd.DataFrame, mode: str = "intraday") -> dict | 
     else:
         score = 50 + 25 * trend + 10 * volume + 10 * momentum + 8 * breakout + 2 * rsi_bias
     score = max(0, min(100, score))
-    side = "BUY" if score >= 70 else "SELL" if score <= 30 else "WATCH"
+
+    # A high score alone is not enough for an actionable signal. Require
+    # participation and directional alignment so thin-volume names do not
+    # become BUY/SELL merely because of EMA/VWAP alignment.
+    raw_side = "BUY" if score >= 70 else "SELL" if score <= 30 else "WATCH"
+    if raw_side in {"BUY", "SELL"} and float(last.rel_volume) < 1.0:
+        side = "WATCH"
+    elif raw_side == "BUY" and trend != 1.0:
+        side = "WATCH"
+    elif raw_side == "SELL" and trend != -1.0:
+        side = "WATCH"
+    else:
+        side = raw_side
 
     price, a = float(last.close), float(last.atr)
     if side == "BUY":
