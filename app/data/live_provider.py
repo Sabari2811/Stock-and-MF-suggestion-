@@ -15,12 +15,16 @@ class YahooLiveProvider:
     """
 
     def history(self, symbol: str, period: str = "6mo", interval: str = "1d") -> pd.DataFrame:
-        df = yf.download(symbol, period=period, interval=interval, auto_adjust=False, progress=False)
+        df = yf.download(symbol, period=period, interval=interval, auto_adjust=False, progress=False, group_by="column")
         if df.empty:
             return pd.DataFrame()
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
-        return df.rename(columns={c: c.lower() for c in df.columns})
+        df.columns = [str(c).lower() for c in df.columns]
+        required = {"open", "high", "low", "close", "volume"}
+        if not required.issubset(df.columns):
+            return pd.DataFrame()
+        return df[["open", "high", "low", "close", "volume"]].dropna(subset=["close"])
 
     def quote(self, symbol: str) -> dict:
         ticker = yf.Ticker(symbol)
@@ -31,7 +35,7 @@ class YahooLiveProvider:
         except Exception:
             hist = self.history(symbol, period="5d", interval="1d")
             if hist.empty:
-                return {"symbol": symbol, "price": 0.0, "change_pct": 0.0}
+                return {"symbol": symbol, "price": 0.0, "change_pct": 0.0, "timestamp": datetime.now(timezone.utc).isoformat()}
             price = float(hist["close"].iloc[-1])
             prev = float(hist["close"].iloc[-2]) if len(hist) > 1 else price
         return {
