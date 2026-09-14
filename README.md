@@ -1,51 +1,43 @@
-# Stock & MF Suggestion Engine
+# Indian Stock Intelligence
 
-A modular Indian equity intelligence application for NSE/BSE stock scanning, intraday and swing setups, market/sector context, risk-defined signals, news context, backtesting, and later mutual-fund portfolio management.
+NSE/BSE-oriented stock research and monitoring application. Mutual-fund portfolio management is intentionally excluded from this phase.
 
-## Phase 1
+## Included
+- Streamlit live-monitoring dashboard
+- Intraday and swing scanners
+- BUY / SELL / WATCH signals and NO-TRADE-safe architecture
+- Entry zone, stop-loss and two targets
+- VWAP, EMA9/EMA21, RSI, ATR, relative volume and breakout logic
+- Liquid-stock starter universe
+- Global market snapshot (US, Asia, crude, gold, USD/INR)
+- Google News RSS context and basic headline classification
+- Replaceable data-provider architecture for broker/API integration
+- FastAPI foundation
+- Signal evaluation diagnostics
+- Automated tests and GitHub Actions CI
 
-This repository currently starts from an empty base and Phase 1 focuses on stocks only:
-
-- Intraday scanner
-- Swing scanner
-- Market regime
-- Sector strength
-- Liquidity / volume ranking
-- Technical setup detection
-- Risk/reward and entry/SL/target engine
-- News/global-market context provider layer
-- Signal scoring
-- Paper/live-monitoring dashboard foundation
-- Testable provider architecture
-
-Mutual-fund portfolio management is intentionally reserved for a later phase.
-
-## Architecture
-
-```text
-app/
-  api/            API routes and application services
-  core/           configuration and shared models
-  data/           provider interfaces and market data adapters
-  market/         market regime and index context
-  sectors/        sector ranking and rotation
-  news/           news/event provider interfaces
-  technical/      indicators and price-structure analytics
-  signals/        intraday/swing signal engines
-  risk/           position sizing, stop and target calculations
-  scanners/       universe filtering and ranking
-  backtest/       replay and evaluation framework
-  dashboard/      dashboard models/UI entrypoint
-  tests/          automated tests
-
-infra/             deployment and environment templates
-scripts/           local development scripts
+## Run locally (Windows PowerShell)
+```powershell
+git clone https://github.com/Sabari2811/Stock-and-MF-suggestion-.git
+cd Stock-and-MF-suggestion-
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run streamlit_app.py
 ```
 
-## Principle
+Then open **http://localhost:8501**.
 
-The engine is designed to be selective. `NO_TRADE` is a first-class outcome; the system must not manufacture signals when market, setup, or risk conditions are weak.
+## Data note
+The default adapter uses Yahoo Finance public data and Google News RSS for research/monitoring. Public feeds are not execution-grade. For broker-grade real-time NSE/BSE quotes, candles, volume and order-book data, implement a provider adapter using an authorized market-data/broker API and its credentials; the signal/scanner layers do not need to change.
 
-## Disclaimer
+## Validation
+```powershell
+pytest -q
+```
 
-Signals are analytical outputs, not guaranteed investment advice or returns. Live data quality, execution, slippage, latency, and provider limits materially affect results.
+The application does not claim guaranteed or “perfect” trades. It ranks evidence and can return WATCH/no-trade when conditions are weak. Validate live data quality, spread, latency, slippage, corporate actions and costs before using signals for real money.
+
+## Scope
+This phase is **stocks only**. Mutual-fund portfolio management will be added separately after the stock engine is validated.
