@@ -6,14 +6,12 @@ from typing import Iterable
 import pandas as pd
 import yfinance as yf
 
-from app.core.models import Candle
-
 
 class YahooLiveProvider:
-    """Practical public-data adapter for local monitoring.
+    """Public Yahoo Finance adapter for research/local monitoring.
 
     Symbols use Yahoo Finance suffixes: .NS for NSE and .BO for BSE.
-    It is intentionally isolated so a broker/vendor feed can replace it later.
+    The provider is isolated so a licensed broker/vendor feed can replace it.
     """
 
     def history(self, symbol: str, period: str = "6mo", interval: str = "1d") -> pd.DataFrame:
@@ -26,7 +24,6 @@ class YahooLiveProvider:
 
     def quote(self, symbol: str) -> dict:
         ticker = yf.Ticker(symbol)
-        info = {}
         try:
             info = ticker.fast_info
             price = float(info.get("last_price") or 0)
@@ -37,8 +34,12 @@ class YahooLiveProvider:
                 return {"symbol": symbol, "price": 0.0, "change_pct": 0.0}
             price = float(hist["close"].iloc[-1])
             prev = float(hist["close"].iloc[-2]) if len(hist) > 1 else price
-        return {"symbol": symbol, "price": price, "change_pct": ((price / prev) - 1) * 100 if prev else 0.0,
-                "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {
+            "symbol": symbol,
+            "price": price,
+            "change_pct": ((price / prev) - 1) * 100 if prev else 0.0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
 
     def scan(self, symbols: Iterable[str], period: str = "3mo", interval: str = "1d") -> dict[str, pd.DataFrame]:
         return {s: self.history(s, period=period, interval=interval) for s in symbols}
