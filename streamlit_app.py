@@ -43,17 +43,28 @@ def get_market():
 @st.cache_data(ttl=45, show_spinner=False)
 def scan(symbols, selected_mode, provider_name):
     rows = []
-    period = "3mo" if selected_mode == "Intraday" else "1y"
-    interval = "15m" if selected_mode == "Intraday" else "1d"
+    errors = []
+    # INDstocks uses API interval names such as 15minute/1day,
+    # while Yahoo uses 15m/1d. Keep the mapping explicit so the
+    # two providers expose the same scanner interface.
+    if provider_name == "INDstocks":
+        period = "7d" if selected_mode == "Intraday" else "1y"
+        interval = "15minute" if selected_mode == "Intraday" else "1day"
+    else:
+        period = "3mo" if selected_mode == "Intraday" else "1y"
+        interval = "15m" if selected_mode == "Intraday" else "1d"
+
     for s in symbols:
         try:
             df = provider.history(s, period=period, interval=interval)
             r = rank_stock(s, df, "intraday" if selected_mode == "Intraday" else "swing")
             if r:
                 rows.append(r)
-        except Exception:
-            continue
-    return pd.DataFrame(rows)
+            else:
+                errors.append(f"{s}: insufficient/no candles")
+        except Exception as exc:
+            errors.append(f"{s}: {type(exc).__name__}: {exc}")
+    return pd.DataFrame(rows), errors
 
 market = get_market()
 regime = market_regime(market)
@@ -68,9 +79,12 @@ if not market.empty:
 
 st.subheader(f"{mode} scanner")
 provider_name = "INDstocks" if ind_token_configured else "Yahoo"
-results = scan(tuple(NSE_LIQUID[:max_stocks]), mode, provider_name)
+results, scan_errors = scan(tuple(NSE_LIQUID[:max_stocks]), mode, provider_name)
 if results.empty:
-    st.warning("No candidates returned. Check internet connectivity, token validity, instrument mapping, and market-data availability.")
+    st.warning("No candidates returned. Check the diagnostics below for the first provider errors.")
+    if scan_errors:
+        with st.expander("Scanner diagnostics", expanded=True):
+            st.code("\n".join(scan_errors[:12]))
 else:
     buys = results[results.signal == "BUY"].sort_values("score", ascending=False)
     sells = results[results.signal == "SELL"].sort_values("score")
@@ -80,10 +94,13 @@ else:
     b.metric("SELL", len(sells))
     c.metric("WATCH", len(watches))
     st.dataframe(results.sort_values("score", ascending=False), use_container_width=True, hide_index=True)
+    if scan_errors:
+        with st.expander(f"Skipped symbols ({len(scan_errors)})"):
+            st.code("\n".join(scan_errors[:30]))
 
 st.subheader("🌎 Global market context")
 if market.empty:
-    st.info("Global snapshot unavailable right now.")
+    st.info("Global snapshot unavailable right now. Stock scanning uses the configured market-data provider independently.")
 else:
     st.dataframe(market.sort_values("change_pct", ascending=False), use_container_width=True, hide_index=True)
 
